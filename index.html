@@ -98,7 +98,7 @@ map.on('load', () => {
   map.addSource('georisques', {
     type: 'raster',
     tiles: [
-      'https://www.georisques.gouv.fr/services?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=' + LAYER + '&FORMAT=image/png&TRANSPARENT=true&CRS=EPSG:3857&STYLES=&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256'
+      'https://www.georisques.gouv.fr/services?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=' + LAYER + '&FORMAT=image/png&TRANSPARENT=true&CRS=EPSG:3857&STYLES=&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&BGCOLOR=0xFFFFFF'
     ],
     tileSize: 256,
     attribution: '© Géorisques / BRGM',
