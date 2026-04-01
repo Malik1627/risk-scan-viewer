@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Risk-Scan</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1024px; height: 768px; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+#map { width: 1024px; height: 768px; }
+#badge {
+  position: absolute; top: 12px; left: 12px; z-index: 10;
+  background: rgba(15,17,23,0.88); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px;
+}
+#badge-dot { width: 10px; height: 10px; border-radius: 50%; background: #e74c3c; flex-shrink: 0; }
+#badge-text { color: #fff; font-size: 13px; font-weight: 600; }
+#badge-sub { color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 1px; }
+#footer {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+  background: rgba(15,17,23,0.82); border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;
+}
+#footer-adresse { color: #e8eaf0; font-size: 12px; font-weight: 500; }
+#footer-coords { color: rgba(255,255,255,0.4); font-size: 11px; font-family: monospace; }
+#footer-source { color: rgba(255,255,255,0.3); font-size: 10px; }
+#legend {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+  background: rgba(15,17,23,0.88); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 10px 12px; min-width: 140px;
+}
+#legend-title { color: rgba(255,255,255,0.5); font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 7px; }
+.legend-item { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.legend-color { width: 12px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.legend-label { color: rgba(255,255,255,0.75); font-size: 11px; }
+#loading {
+  position: absolute; inset: 0; z-index: 100; background: #0f1117;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px; transition: opacity 0.6s ease;
+}
+#loading.done { opacity: 0; pointer-events: none; }
+.spin {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.1); border-top-color: #e74c3c;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading-text { color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 0.06em; font-family: monospace; }
+</style>
+</head>
+<body>
+<div id="loading"><div class="spin"></div><div id="loading-text">CHARGEMENT...</div></div>
+<div id="map"></div>
+<div id="badge">
+  <div id="badge-dot"></div>
+  <div><div id="badge-text">—</div><div id="badge-sub">Risk-Scan · Géorisques</div></div>
+</div>
+<div id="legend"><div id="legend-title">Légende</div><div id="legend-items"></div></div>
+<div id="footer">
+  <div id="footer-adresse">—</div>
+  <div id="footer-coords">—</div>
+  <div id="footer-source">Source : Géorisques / BRGM</div>
+</div>
+<script>
+const p = new URLSearchParams(window.location.search);
+const LAT = parseFloat(p.get('lat') || '43.437');
+const LON = parseFloat(p.get('lon') || '5.259');
+const LAYER = p.get('layer') || 'ALEARG_REALISE';
+const TITRE = p.get('titre') || 'Risque';
+const ADRESSE = p.get('adresse') || '';
+const ZOOM = parseFloat(p.get('zoom') || '13');
+const TOKEN = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+const LEGENDS = {
+  ALEARG_REALISE: [['#c0392b','Aléa fort'],['#e67e22','Aléa moyen'],['#f1c40f','Aléa faible'],['#bdc3c7','Aléa très faible']],
+  MVT_LOCALISE: [['#8e44ad','Mouvement recensé']],
+  CAVITE_LOCALISEE: [['#2c3e50','Cavité localisée']],
+  PPRN_PERIMETRE: [['#e74c3c','PPR approuvé'],['#e67e22','PPR prescrit']],
+  SIS_INTENSITE_MAXCOM: [['#c0392b','Sismicité forte'],['#e67e22','Sismicité modérée'],['#f1c40f','Sismicité faible']],
+};
+const COLORS = { ALEARG_REALISE:'#e74c3c', MVT_LOCALISE:'#8e44ad', CAVITE_LOCALISEE:'#2c3e50', PPRN_PERIMETRE:'#c0392b', SIS_INTENSITE_MAXCOM:'#e67e22' };
+document.getElementById('badge-text').textContent = TITRE;
+document.getElementById('badge-dot').style.background = COLORS[LAYER] || '#e74c3c';
+document.getElementById('footer-adresse').textContent = ADRESSE || 'Site étudié';
+document.getElementById('footer-coords').textContent = LAT.toFixed(5) + ', ' + LON.toFixed(5);
+const li = document.getElementById('legend-items');
+(LEGENDS[LAYER] || []).forEach(([c,l]) => { li.innerHTML += '<div class="legend-item"><div class="legend-color" style="background:'+c+'"></div><div class="legend-label">'+l+'</div></div>'; });
+li.innerHTML += '<div class="legend-item"><div class="legend-color" style="background:#e74c3c;border-radius:50%"></div><div class="legend-label">Site étudié</div></div>';
+mapboxgl.accessToken = TOKEN;
+const map = new mapboxgl.Map({
+  container: 'map', style: 'mapbox://styles/mapbox/light-v11',
+  center: [LON, LAT], zoom: ZOOM, attributionControl: false,
+});
+map.on('load', () => {
+  map.addSource('georisques', {
+    type: 'raster',
+    tiles: ['https://www.georisques.gouv.fr/services?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS='+LAYER+'&FORMAT=image/png&TRANSPARENT=true&CRS=EPSG:3857&STYLES=&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256'],
+    tileSize: 256, attribution: '© Géorisques / BRGM',
+  });
+  map.addLayer({ id: 'georisques-layer', type: 'raster', source: 'georisques', paint: { 'raster-opacity': 0.75 } });
+  const el = document.createElement('div');
+  el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#e74c3c;border:3px solid white;box-shadow:0 0 0 2px rgba(231,76,60,0.4),0 2px 8px rgba(0,0,0,0.3);';
+  new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([LON, LAT]).addTo(map);
+  map.once('idle', () => { setTimeout(() => { document.getElementById('loading').classList.add('done'); }, 800); });
+});
+map.on('error', () => { document.getElementById('loading').classList.add('done'); });
+</script>
+</body>
+</html>
