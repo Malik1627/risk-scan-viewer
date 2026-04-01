@@ -4,34 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Risk-Scan</title>
-<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 1024px; height: 768px; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
-
-/* Conteneur principal */
-#container { position: relative; width: 1024px; height: 768px; }
-
-/* Couche 1 (bas) : WMS Géorisques via img tiles */
-#wms-layer {
-  position: absolute; top: 0; left: 0;
-  width: 1024px; height: 768px;
-  z-index: 1;
-}
-
-/* Couche 2 (haut) : Mapbox en mode multiply — le blanc devient transparent */
-#map {
-  position: absolute; top: 0; left: 0;
-  width: 1024px; height: 768px;
-  z-index: 2;
-  mix-blend-mode: multiply;
-  background: transparent !important;
-}
-
-/* UI par-dessus tout */
+#map { width: 1024px; height: 768px; }
 #badge {
-  position: absolute; top: 12px; left: 12px; z-index: 20;
+  position: absolute; top: 12px; left: 12px; z-index: 1000;
   background: rgba(15,17,23,0.9); border: 1px solid rgba(255,255,255,0.15);
   border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px;
 }
@@ -39,7 +19,7 @@ html, body { width: 1024px; height: 768px; overflow: hidden; font-family: 'Segoe
 #badge-text { color: #fff; font-size: 13px; font-weight: 600; }
 #badge-sub { color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 1px; }
 #footer {
-  position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 1000;
   background: rgba(15,17,23,0.85); border-top: 1px solid rgba(255,255,255,0.08);
   padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;
 }
@@ -47,49 +27,58 @@ html, body { width: 1024px; height: 768px; overflow: hidden; font-family: 'Segoe
 #footer-coords { color: rgba(255,255,255,0.4); font-size: 11px; font-family: monospace; }
 #footer-source { color: rgba(255,255,255,0.3); font-size: 10px; }
 #legend {
-  position: absolute; top: 12px; right: 12px; z-index: 20;
+  position: absolute; top: 12px; right: 12px; z-index: 1000;
   background: rgba(15,17,23,0.9); border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 8px; padding: 10px 12px; min-width: 140px;
+  border-radius: 8px; padding: 10px 12px; min-width: 150px;
 }
-#legend-title { color: rgba(255,255,255,0.5); font-size: 9px; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 7px; }
+#legend-title {
+  color: rgba(255,255,255,0.5); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 7px;
+}
 .legend-item { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
 .legend-color { width: 12px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 .legend-label { color: rgba(255,255,255,0.75); font-size: 11px; }
+/* Override leaflet attribution */
+.leaflet-control-attribution { font-size: 9px !important; }
 </style>
 </head>
 <body>
-<div id="container">
-  <div id="wms-layer"></div>
-  <div id="map"></div>
-  <div id="badge">
-    <div id="badge-dot"></div>
-    <div><div id="badge-text">—</div><div id="badge-sub">Risk-Scan · Géorisques</div></div>
-  </div>
-  <div id="legend"><div id="legend-title">Légende</div><div id="legend-items"></div></div>
-  <div id="footer">
-    <div id="footer-adresse">—</div>
-    <div id="footer-coords">—</div>
-    <div id="footer-source">Source : Géorisques / BRGM</div>
-  </div>
+
+<div id="map"></div>
+
+<div id="badge">
+  <div id="badge-dot"></div>
+  <div><div id="badge-text">—</div><div id="badge-sub">Risk-Scan · Géorisques</div></div>
+</div>
+
+<div id="legend">
+  <div id="legend-title">Légende</div>
+  <div id="legend-items"></div>
+</div>
+
+<div id="footer">
+  <div id="footer-adresse">—</div>
+  <div id="footer-coords">—</div>
+  <div id="footer-source">© Géorisques / BRGM · © OpenStreetMap</div>
 </div>
 
 <script>
-const p = new URLSearchParams(window.location.search);
-const LAT   = parseFloat(p.get('lat')   || '43.437');
-const LON   = parseFloat(p.get('lon')   || '5.259');
-const LAYER = p.get('layer') || 'ALEARG_REALISE';
-const TITRE = p.get('titre') || 'Risque';
+// ── Paramètres URL ────────────────────────────────────────────────────────────
+const p       = new URLSearchParams(window.location.search);
+const LAT     = parseFloat(p.get('lat')    || '43.437');
+const LON     = parseFloat(p.get('lon')    || '5.259');
+const LAYER   = p.get('layer')  || 'ALEARG_REALISE';
+const TITRE   = p.get('titre')  || 'Risque';
 const ADRESSE = decodeURIComponent(p.get('adresse') || '');
-const ZOOM  = parseFloat(p.get('zoom')  || '13');
-const TOKEN = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+const ZOOM    = parseInt(p.get('zoom') || '13');
 
+// ── Légendes ──────────────────────────────────────────────────────────────────
 const LEGENDS = {
-  ALEARG_REALISE:      [['#c0392b','Aléa fort'],['#e67e22','Aléa moyen'],['#f1c40f','Aléa faible'],['#bdc3c7','Aléa très faible']],
-  MVT_LOCALISE:        [['#8e44ad','Mouvement recensé']],
-  CAVITE_LOCALISEE:    [['#2c3e50','Cavité localisée']],
-  PPRN_PERIMETRE:      [['#e74c3c','PPR approuvé'],['#e67e22','PPR prescrit']],
-  SIS_INTENSITE_MAXCOM:[['#c0392b','Forte'],['#e67e22','Modérée'],['#f1c40f','Faible']],
+  ALEARG_REALISE:       [['#c0392b','Aléa fort'],['#e67e22','Aléa moyen'],['#f1c40f','Aléa faible'],['#bdc3c7','Aléa très faible']],
+  MVT_LOCALISE:         [['#8e44ad','Mouvement recensé']],
+  CAVITE_LOCALISEE:     [['#2c3e50','Cavité localisée']],
+  PPRN_PERIMETRE:       [['#e74c3c','PPR approuvé'],['#e67e22','PPR prescrit']],
+  SIS_INTENSITE_MAXCOM: [['#c0392b','Sismicité forte'],['#e67e22','Sismicité modérée'],['#f1c40f','Sismicité faible']],
 };
 const COLORS = {
   ALEARG_REALISE:'#e74c3c', MVT_LOCALISE:'#8e44ad',
@@ -97,7 +86,7 @@ const COLORS = {
   SIS_INTENSITE_MAXCOM:'#e67e22'
 };
 
-// UI
+// ── UI ────────────────────────────────────────────────────────────────────────
 document.getElementById('badge-text').textContent = TITRE;
 document.getElementById('badge-dot').style.background = COLORS[LAYER] || '#e74c3c';
 document.getElementById('footer-adresse').textContent = ADRESSE || 'Site étudié';
@@ -109,130 +98,36 @@ const li = document.getElementById('legend-items');
 });
 li.innerHTML += '<div class="legend-item"><div class="legend-color" style="background:#e74c3c;border-radius:50%"></div><div class="legend-label">Site étudié</div></div>';
 
-// ─── MAPBOX (couche du haut en mix-blend-mode:multiply) ─────────────────────
-mapboxgl.accessToken = TOKEN;
-const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/light-v11', // fond clair = blanc → transparent en multiply
-  center: [LON, LAT],
+// ── Leaflet — Fond de carte OSM ───────────────────────────────────────────────
+const map = L.map('map', {
+  center: [LAT, LON],
   zoom: ZOOM,
+  zoomControl: false,
   attributionControl: true,
-  preserveDrawingBuffer: true,
-  fadeDuration: 0,
 });
 
-map.on('load', () => {
-  // Marqueur site
-  const el = document.createElement('div');
-  el.style.cssText = [
-    'width:16px','height:16px','border-radius:50%',
-    'background:#e74c3c','border:3px solid white',
-    'box-shadow:0 0 0 2px rgba(231,76,60,0.5),0 2px 8px rgba(0,0,0,0.4)',
-    'position:relative','z-index:10'
-  ].join(';');
-  new mapboxgl.Marker({ element: el, anchor: 'center' })
-    .setLngLat([LON, LAT])
-    .addTo(map);
-});
+// Fond de carte OpenStreetMap
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors',
+  maxZoom: 19,
+}).addTo(map);
 
-// ─── WMS GÉORISQUES (couche du bas via tuiles img) ───────────────────────────
-// On utilise OpenLayers lite — en réalité on construit un grid de tuiles manuellement
-// en convertissant les coordonnées lat/lon en tuiles XYZ pour le WMS EPSG:3857
+// ── WMS Géorisques superposé ──────────────────────────────────────────────────
+// Leaflet gère nativement la superposition WMS — opacity 0.6 pour voir les rues
+L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
+  layers: LAYER,
+  format: 'image/png',
+  transparent: true,
+  version: '1.3.0',
+  opacity: 0.6,
+  attribution: '© Géorisques / BRGM',
+  crs: L.CRS.EPSG3857,
+}).addTo(map);
 
-function lon2tile(lon, zoom) {
-  return Math.floor((lon + 180) / 360 * Math.pow(2, zoom));
-}
-function lat2tile(lat, zoom) {
-  return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
-}
-function tile2lon(x, zoom) {
-  return x / Math.pow(2, zoom) * 360 - 180;
-}
-function tile2lat(y, zoom) {
-  const n = Math.PI - 2 * Math.PI * y / Math.pow(2, zoom);
-  return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-}
-function lon2merc(lon) { return lon * 20037508.34 / 180; }
-function lat2merc(lat) {
-  const y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
-  return y * 20037508.34 / 180;
-}
-
-const TILE_ZOOM = 13;
-const TILE_SIZE = 256;
-const W = 1024, H = 768;
-
-// Tuile centrale
-const cx = lon2tile(LON, TILE_ZOOM);
-const cy = lat2tile(LAT, TILE_ZOOM);
-
-// Combien de tuiles couvrir
-const tilesX = Math.ceil(W / TILE_SIZE) + 2;
-const tilesY = Math.ceil(H / TILE_SIZE) + 2;
-
-// Pixel offset de la tuile centrale par rapport au centre de l'écran
-function tileToPixel(tx, ty) {
-  const latTop = tile2lat(cy, TILE_ZOOM);
-  const latBot = tile2lat(cy + 1, TILE_ZOOM);
-  const lonLeft = tile2lon(cx, TILE_ZOOM);
-  const lonRight = tile2lon(cx + 1, TILE_ZOOM);
-  // fraction du coin de la tuile par rapport au centre
-  const mercCX = lon2merc(LON);
-  const mercCY = lat2merc(LAT);
-  const mercTileW = lon2merc(lonRight) - lon2merc(lonLeft);
-  const mercTileH = lat2merc(latTop) - lat2merc(latBot);
-  const fracX = (lon2merc(tile2lon(tx, TILE_ZOOM)) - mercCX) / mercTileW;
-  const fracY = (lat2merc(tile2lat(ty, TILE_ZOOM)) - mercCY) / mercTileH;
-  return {
-    x: W / 2 + fracX * TILE_SIZE,
-    y: H / 2 - fracY * TILE_SIZE
-  };
-}
-
-const wmsDiv = document.getElementById('wms-layer');
-wmsDiv.style.position = 'absolute';
-wmsDiv.style.overflow = 'hidden';
-
-for (let dx = -Math.ceil(tilesX / 2); dx <= Math.ceil(tilesX / 2); dx++) {
-  for (let dy = -Math.ceil(tilesY / 2); dy <= Math.ceil(tilesY / 2); dy++) {
-    const tx = cx + dx;
-    const ty = cy + dy;
-
-    // BBOX en EPSG:3857 pour ce tile
-    const lonL = tile2lon(tx, TILE_ZOOM);
-    const lonR = tile2lon(tx + 1, TILE_ZOOM);
-    const latT = tile2lat(ty, TILE_ZOOM);
-    const latB = tile2lat(ty + 1, TILE_ZOOM);
-    const minX = lon2merc(lonL);
-    const maxX = lon2merc(lonR);
-    const minY = lat2merc(latB);
-    const maxY = lat2merc(latT);
-
-    const bbox = minX + ',' + minY + ',' + maxX + ',' + maxY;
-    const wmsUrl = 'https://www.georisques.gouv.fr/services?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap'
-      + '&LAYERS=' + LAYER
-      + '&FORMAT=image/png&TRANSPARENT=TRUE'
-      + '&CRS=EPSG:3857&STYLES='
-      + '&BBOX=' + bbox
-      + '&WIDTH=256&HEIGHT=256';
-
-    const pos = tileToPixel(tx, ty);
-
-    const img = document.createElement('img');
-    img.src = wmsUrl;
-    img.style.cssText = [
-      'position:absolute',
-      'left:' + Math.round(pos.x) + 'px',
-      'top:' + Math.round(pos.y) + 'px',
-      'width:256px',
-      'height:256px',
-      'opacity:0.7',
-      'image-rendering:crisp-edges'
-    ].join(';');
-    img.crossOrigin = 'anonymous';
-    wmsDiv.appendChild(img);
-  }
-}
+// ── Marqueur site ─────────────────────────────────────────────────────────────
+const markerHtml = '<div style="width:16px;height:16px;border-radius:50%;background:#e74c3c;border:3px solid white;box-shadow:0 0 0 2px rgba(231,76,60,0.5),0 2px 8px rgba(0,0,0,0.4);"></div>';
+const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [16,16], iconAnchor: [8,8] });
+L.marker([LAT, LON], { icon }).addTo(map);
 </script>
 </body>
 </html>
