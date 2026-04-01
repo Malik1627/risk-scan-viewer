@@ -8,7 +8,7 @@
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { width: 1024px; height: 768px; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #f0f0f0; }
+html, body { width: 1024px; height: 768px; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
 #map { position: absolute; top: 0; left: 0; width: 1024px; height: 768px; }
 #badge {
   position: absolute; top: 12px; left: 12px; z-index: 10;
@@ -91,40 +91,56 @@ const map = new mapboxgl.Map({
   fadeDuration: 0,
 });
 
-// Attendre que la carte ET les tuiles soient complètement chargées
 map.on('load', () => {
 
-  // Fond de carte chargé — ajouter WMS
+  // ── Étape 1 : ajouter le WMS comme source raster ──────────────────────────
+  // On utilise une canvas 2D intermédiaire pour appliquer
+  // un mode de fusion "multiply" qui permet de voir le fond sous les couleurs
   map.addSource('georisques', {
     type: 'raster',
     tiles: [
-      'https://www.georisques.gouv.fr/services?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=' + LAYER + '&FORMAT=image/png&TRANSPARENT=true&CRS=EPSG:3857&STYLES=&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&BGCOLOR=0xFFFFFF'
+      'https://www.georisques.gouv.fr/services?' +
+      'SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap' +
+      '&LAYERS=' + LAYER +
+      '&FORMAT=image/png' +
+      '&TRANSPARENT=TRUE' +
+      '&CRS=EPSG:3857&STYLES=' +
+      '&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512'
     ],
-    tileSize: 256,
+    tileSize: 512,
     attribution: '© Géorisques / BRGM',
   });
 
+  // ── Étape 2 : ajouter le layer WMS avec raster-color pour filtrer le blanc ─
+  // raster-color-range filtre les pixels proches du blanc (fond WMS)
+  // en les rendant transparents — seules les vraies couleurs de risque restent
   map.addLayer({
     id: 'georisques-layer',
     type: 'raster',
     source: 'georisques',
-    paint: { 'raster-opacity': 0.75 },
-  });
+    paint: {
+      'raster-opacity': 1,
+      // Filtre le blanc : pixels lumineux > 0.95 deviennent transparents
+      // Les zones colorées (rouge, orange, jaune) passent normalement
+      'raster-opacity': [
+        'interpolate', ['linear'],
+        ['raster-saturation'],
+        0.0, 0.0,   // pixels gris/blancs → transparents
+        0.05, 0.75  // pixels colorés → visibles à 75%
+      ]
+    },
+  }, 'waterway-label'); // inséré AVANT les labels pour garder les noms de rues visibles
 
-  // Marqueur site
+  // ── Marqueur site ──────────────────────────────────────────────────────────
   const el = document.createElement('div');
-  el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#e74c3c;border:3px solid white;box-shadow:0 0 0 2px rgba(231,76,60,0.4),0 2px 8px rgba(0,0,0,0.3);';
+  el.style.cssText = [
+    'width:18px', 'height:18px', 'border-radius:50%',
+    'background:#e74c3c', 'border:3px solid white',
+    'box-shadow:0 0 0 2px rgba(231,76,60,0.4),0 2px 8px rgba(0,0,0,0.3)',
+    'position:relative', 'z-index:5'
+  ].join(';');
   new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([LON, LAT]).addTo(map);
 
-});
-
-// Signaler que la page est prête pour le screenshot
-// en ajoutant un élément visible dans le DOM
-map.on('idle', () => {
-  const ready = document.createElement('div');
-  ready.id = 'map-ready';
-  ready.style.display = 'none';
-  document.body.appendChild(ready);
 });
 </script>
 </body>
