@@ -109,6 +109,14 @@ if (GEOAPIFY_KEY) {
   ).addTo(map);
 } else {
   // Fallback OSM pour les tests dans le navigateur sans clé
+const GEOAPIFY_KEY = p.get('gkey') || '';
+
+if (GEOAPIFY_KEY) {
+  L.tileLayer(
+    'https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=' + GEOAPIFY_KEY,
+    { attribution: '© Geoapify · © OpenStreetMap', maxZoom: 20, crossOrigin: true }
+  ).addTo(map);
+} else {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors', maxZoom: 19
   }).addTo(map);
