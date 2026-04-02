@@ -38,32 +38,25 @@ html, body { width: 1024px; height: 768px; overflow: hidden; font-family: 'Segoe
 .legend-item { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
 .legend-color { width: 12px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 .legend-label { color: rgba(255,255,255,0.75); font-size: 11px; }
-/* Override leaflet attribution */
 .leaflet-control-attribution { font-size: 9px !important; }
 </style>
 </head>
 <body>
-
 <div id="map"></div>
-
 <div id="badge">
   <div id="badge-dot"></div>
   <div><div id="badge-text">—</div><div id="badge-sub">Risk-Scan · Géorisques</div></div>
 </div>
-
 <div id="legend">
   <div id="legend-title">Légende</div>
   <div id="legend-items"></div>
 </div>
-
 <div id="footer">
   <div id="footer-adresse">—</div>
   <div id="footer-coords">—</div>
   <div id="footer-source">© Géorisques / BRGM · © OpenStreetMap</div>
 </div>
-
 <script>
-// ── Paramètres URL ────────────────────────────────────────────────────────────
 const p       = new URLSearchParams(window.location.search);
 const LAT     = parseFloat(p.get('lat')    || '43.437');
 const LON     = parseFloat(p.get('lon')    || '5.259');
@@ -72,7 +65,9 @@ const TITRE   = p.get('titre')  || 'Risque';
 const ADRESSE = decodeURIComponent(p.get('adresse') || '');
 const ZOOM    = parseInt(p.get('zoom') || '13');
 
-// ── Légendes ──────────────────────────────────────────────────────────────────
+// ⚠️ Remplace par ta clé Geoapify
+const GEOAPIFY_KEY = 'YOUR_GEOAPIFY_API_KEY';
+
 const LEGENDS = {
   ALEARG_REALISE:       [['#c0392b','Aléa fort'],['#e67e22','Aléa moyen'],['#f1c40f','Aléa faible'],['#bdc3c7','Aléa très faible']],
   MVT_LOCALISE:         [['#8e44ad','Mouvement recensé']],
@@ -86,7 +81,6 @@ const COLORS = {
   SIS_INTENSITE_MAXCOM:'#e67e22'
 };
 
-// ── UI ────────────────────────────────────────────────────────────────────────
 document.getElementById('badge-text').textContent = TITRE;
 document.getElementById('badge-dot').style.background = COLORS[LAYER] || '#e74c3c';
 document.getElementById('footer-adresse').textContent = ADRESSE || 'Site étudié';
@@ -98,7 +92,7 @@ const li = document.getElementById('legend-items');
 });
 li.innerHTML += '<div class="legend-item"><div class="legend-color" style="background:#e74c3c;border-radius:50%"></div><div class="legend-label">Site étudié</div></div>';
 
-// ── Leaflet — Fond de carte OSM ───────────────────────────────────────────────
+// ── Leaflet ───────────────────────────────────────────────────────────────────
 const map = L.map('map', {
   center: [LAT, LON],
   zoom: ZOOM,
@@ -106,25 +100,29 @@ const map = L.map('map', {
   attributionControl: true,
 });
 
-// Fond de carte OpenStreetMap
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors',
-  maxZoom: 19,
-}).addTo(map);
+// Fond de carte Geoapify — pas de restriction CORS
+L.tileLayer(
+  'https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=' + GEOAPIFY_KEY,
+  {
+    attribution: '© Geoapify · © OpenStreetMap contributors',
+    maxZoom: 20,
+    crossOrigin: true,
+  }
+).addTo(map);
 
-// ── WMS Géorisques superposé ──────────────────────────────────────────────────
-// Leaflet gère nativement la superposition WMS — opacity 0.6 pour voir les rues
+// WMS Géorisques superposé
 L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
   layers: LAYER,
   format: 'image/png',
   transparent: true,
   version: '1.3.0',
-  opacity: 0.6,
+  opacity: 0.65,
   attribution: '© Géorisques / BRGM',
   crs: L.CRS.EPSG3857,
+  crossOrigin: true,
 }).addTo(map);
 
-// ── Marqueur site ─────────────────────────────────────────────────────────────
+// Marqueur site
 const markerHtml = '<div style="width:16px;height:16px;border-radius:50%;background:#e74c3c;border:3px solid white;box-shadow:0 0 0 2px rgba(231,76,60,0.5),0 2px 8px rgba(0,0,0,0.4);"></div>';
 const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [16,16], iconAnchor: [8,8] });
 L.marker([LAT, LON], { icon }).addTo(map);
