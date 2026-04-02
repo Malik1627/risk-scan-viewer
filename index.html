@@ -57,17 +57,17 @@ html, body { width: 1024px; height: 768px; overflow: hidden; font-family: 'Segoe
   <div id="footer-source">© Géorisques / BRGM · © OpenStreetMap</div>
 </div>
 <script>
-const p       = new URLSearchParams(window.location.search);
-const LAT     = parseFloat(p.get('lat')    || '43.437');
-const LON     = parseFloat(p.get('lon')    || '5.259');
-const LAYER   = p.get('layer')  || 'ALEARG_REALISE';
-const TITRE   = p.get('titre')  || 'Risque';
-const ADRESSE = decodeURIComponent(p.get('adresse') || '');
-const ZOOM    = parseInt(p.get('zoom') || '13');
+// ── Paramètres URL ────────────────────────────────────────────────────────────
+const p           = new URLSearchParams(window.location.search);
+const LAT         = parseFloat(p.get('lat')    || '43.437');
+const LON         = parseFloat(p.get('lon')    || '5.259');
+const LAYER       = p.get('layer')  || 'ALEARG_REALISE';
+const TITRE       = p.get('titre')  || 'Risque';
+const ADRESSE     = decodeURIComponent(p.get('adresse') || '');
+const ZOOM        = parseInt(p.get('zoom')     || '13');
+const GEOAPIFY_KEY = p.get('gkey') || '';   // ← clé passée depuis Make, jamais dans le code
 
-// ⚠️ Remplace par ta clé Geoapify
-const GEOAPIFY_KEY = p.get('gkey') || '';
-
+// ── Légendes ──────────────────────────────────────────────────────────────────
 const LEGENDS = {
   ALEARG_REALISE:       [['#c0392b','Aléa fort'],['#e67e22','Aléa moyen'],['#f1c40f','Aléa faible'],['#bdc3c7','Aléa très faible']],
   MVT_LOCALISE:         [['#8e44ad','Mouvement recensé']],
@@ -81,6 +81,7 @@ const COLORS = {
   SIS_INTENSITE_MAXCOM:'#e67e22'
 };
 
+// ── UI ────────────────────────────────────────────────────────────────────────
 document.getElementById('badge-text').textContent = TITRE;
 document.getElementById('badge-dot').style.background = COLORS[LAYER] || '#e74c3c';
 document.getElementById('footer-adresse').textContent = ADRESSE || 'Site étudié';
@@ -100,17 +101,20 @@ const map = L.map('map', {
   attributionControl: true,
 });
 
-// Fond de carte Geoapify — pas de restriction CORS
-L.tileLayer(
-  'https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=' + GEOAPIFY_KEY,
-  {
-    attribution: '© Geoapify · © OpenStreetMap contributors',
-    maxZoom: 20,
-    crossOrigin: true,
-  }
-).addTo(map);
+// Fond de carte : Geoapify si clé présente, sinon OSM en fallback
+if (GEOAPIFY_KEY) {
+  L.tileLayer(
+    'https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=' + GEOAPIFY_KEY,
+    { attribution: '© Geoapify · © OpenStreetMap', maxZoom: 20, crossOrigin: true }
+  ).addTo(map);
+} else {
+  // Fallback OSM pour les tests dans le navigateur sans clé
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+  }).addTo(map);
+}
 
-// WMS Géorisques superposé
+// ── WMS Géorisques superposé ──────────────────────────────────────────────────
 L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
   layers: LAYER,
   format: 'image/png',
@@ -122,7 +126,7 @@ L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
   crossOrigin: true,
 }).addTo(map);
 
-// Marqueur site
+// ── Marqueur site ─────────────────────────────────────────────────────────────
 const markerHtml = '<div style="width:16px;height:16px;border-radius:50%;background:#e74c3c;border:3px solid white;box-shadow:0 0 0 2px rgba(231,76,60,0.5),0 2px 8px rgba(0,0,0,0.4);"></div>';
 const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [16,16], iconAnchor: [8,8] });
 L.marker([LAT, LON], { icon }).addTo(map);
