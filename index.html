@@ -113,13 +113,13 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 // ── WMS Géorisques superposé ──────────────────────────────────────────────────
-// Leaflet gère nativement la superposition WMS — opacity 0.6 pour voir les rues
+// Leaflet gère nativement la superposition WMS — opacity 0.99 pour voir les rues
 L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
   layers: LAYER,
   format: 'image/png',
   transparent: true,
   version: '1.3.0',
-  opacity: 0.85,
+  opacity: 0.99,
   attribution: '© Géorisques / BRGM',
   crs: L.CRS.EPSG3857,
 }).addTo(map);
