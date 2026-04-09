@@ -128,6 +128,29 @@ L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
 const markerHtml = '<div style="width:24px;height:24px;border-radius:50%;background:#e74c3c;border:3px solid white;box-shadow:0 0 0 2px rgba(231,76,60,0.5),0 2px 8px rgba(0,0,0,0.4);"></div>';
 const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [24,24], iconAnchor: [12,12] });
 L.marker([LAT, LON], { icon }).addTo(map);
+// ── Extraction couleur pixel sous le marqueur ─────────────────────────────
+map.on('load', function() { extractPixelColor(); });
+setTimeout(extractPixelColor, 8000); // fallback si event load ne se déclenche pas
+
+function extractPixelColor() {
+  try {
+    const canvas = document.querySelector('.leaflet-tile-pane canvas') 
+                || document.querySelector('canvas');
+    if (!canvas) { document.title = 'PIXEL_COLOR:unknown'; return; }
+    
+    const ctx = canvas.getContext('2d');
+    // Pixel central = position du marqueur sur une image 1024x768
+    const pixel = ctx.getImageData(512, 384, 1, 1).data;
+    const hex = '#' 
+      + pixel[0].toString(16).padStart(2, '0')
+      + pixel[1].toString(16).padStart(2, '0')
+      + pixel[2].toString(16).padStart(2, '0');
+    
+    document.title = 'PIXEL_COLOR:' + hex;
+  } catch(e) {
+    document.title = 'PIXEL_COLOR:error';
+  }
+}
 </script>
 </body>
 </html>
