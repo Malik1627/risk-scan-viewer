@@ -129,6 +129,33 @@ L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
 const markerHtml = '<div style="width:24px;height:24px;border-radius:50%;background:#e74c3c;border:3px solid white;box-shadow:0 0 0 2px rgba(231,76,60,0.5),0 2px 8px rgba(0,0,0,0.4);"></div>';
 const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [24,24], iconAnchor: [12,12] });
 L.marker([LAT, LON], { icon }).addTo(map);
+
+// ── Extraction couleur pixel sous le marqueur ──────────────────────────────
+document.title = 'PIXEL_COLOR:unknown';
+
+setTimeout(function() {
+  try {
+    var canvases = document.querySelectorAll('canvas');
+    for (var i = 0; i < canvases.length; i++) {
+      var canvas = canvases[i];
+      var ctx = canvas.getContext('2d');
+      var d = ctx.getImageData(
+        Math.floor(canvas.width / 2),
+        Math.floor(canvas.height / 2),
+        1, 1
+      ).data;
+      var hex = '#'
+        + ('0' + d[0].toString(16)).slice(-2)
+        + ('0' + d[1].toString(16)).slice(-2)
+        + ('0' + d[2].toString(16)).slice(-2);
+      document.title = 'PIXEL_COLOR:' + hex;
+      return;
+    }
+  } catch(e) {
+    document.title = 'PIXEL_COLOR:cors-error';
+  }
+}, 10000);
+  
 // ── Extraction couleur pixel sous le marqueur ─────────────────────────────
 map.on('load', function() { extractPixelColor(); });
 setTimeout(extractPixelColor, 8000); // fallback si event load ne se déclenche pas
