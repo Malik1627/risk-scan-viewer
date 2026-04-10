@@ -135,50 +135,61 @@ document.title = 'PIXEL_COLOR:unknown';
 
 setTimeout(function() {
   try {
-    var canvases = document.querySelectorAll('canvas');
-    for (var i = 0; i < canvases.length; i++) {
-      var canvas = canvases[i];
-      var ctx = canvas.getContext('2d');
-      var d = ctx.getImageData(
-        Math.floor(canvas.width / 2),
-        Math.floor(canvas.height / 2),
-        1, 1
-      ).data;
-      var hex = '#'
-        + ('0' + d[0].toString(16)).slice(-2)
-        + ('0' + d[1].toString(16)).slice(-2)
-        + ('0' + d[2].toString(16)).slice(-2);
-      document.title = 'PIXEL_COLOR:' + hex;
-      return;
+    // Coordonnées écran du centre de la carte (position du marqueur)
+    var mapEl = document.getElementById('map');
+    var cx = Math.floor(mapEl.offsetWidth / 2);
+    var cy = Math.floor(mapEl.offsetHeight / 2);
+
+    // Récupère l'élément HTML à cette position
+    var el = document.elementFromPoint(cx, cy);
+
+    // Remonte dans le DOM jusqu'à trouver un élément <img> de tuile WMS
+    while (el && el.tagName !== 'IMG') {
+      el = el.parentElement;
+    }
+
+    if (el && el.tagName === 'IMG') {
+      // Dessine l'image dans un canvas local (même domaine si possible)
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function() {
+        try {
+          var c = document.createElement('canvas');
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          var ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          // Pixel central de la tuile
+          var d = ctx.getImageData(
+            Math.floor(img.naturalWidth / 2),
+            Math.floor(img.naturalHeight / 2),
+            1, 1
+          ).data;
+          if (d[3] === 0) {
+            // Pixel transparent = pas de calque WMS = hors zone
+            document.title = 'PIXEL_COLOR:transparent';
+          } else {
+            var hex = '#'
+              + ('0' + d[0].toString(16)).slice(-2)
+              + ('0' + d[1].toString(16)).slice(-2)
+              + ('0' + d[2].toString(16)).slice(-2);
+            document.title = 'PIXEL_COLOR:' + hex;
+          }
+        } catch(e2) {
+          document.title = 'PIXEL_COLOR:canvas-error';
+        }
+      };
+      img.onerror = function() {
+        document.title = 'PIXEL_COLOR:img-error';
+      };
+      img.src = el.src;
+    } else {
+      document.title = 'PIXEL_COLOR:no-img';
     }
   } catch(e) {
-    document.title = 'PIXEL_COLOR:cors-error';
+    document.title = 'PIXEL_COLOR:error-' + e.message.substring(0,20);
   }
 }, 10000);
-  
-// ── Extraction couleur pixel sous le marqueur ─────────────────────────────
-map.on('load', function() { extractPixelColor(); });
-setTimeout(extractPixelColor, 8000); // fallback si event load ne se déclenche pas
-
-function extractPixelColor() {
-  try {
-    const canvas = document.querySelector('.leaflet-tile-pane canvas') 
-                || document.querySelector('canvas');
-    if (!canvas) { document.title = 'PIXEL_COLOR:unknown'; return; }
-    
-    const ctx = canvas.getContext('2d');
-    // Pixel central = position du marqueur sur une image 1024x768
-    const pixel = ctx.getImageData(512, 384, 1, 1).data;
-    const hex = '#' 
-      + pixel[0].toString(16).padStart(2, '0')
-      + pixel[1].toString(16).padStart(2, '0')
-      + pixel[2].toString(16).padStart(2, '0');
-    
-    document.title = 'PIXEL_COLOR:' + hex;
-  } catch(e) {
-    document.title = 'PIXEL_COLOR:error';
-  }
-}
 </script>
 </body>
 </html>
