@@ -98,6 +98,35 @@ const li = document.getElementById('legend-items');
 });
 li.innerHTML += '<div class="legend-item"><div class="legend-color" style="background:#e74c3c;border-radius:50%"></div><div class="legend-label">Site étudié</div></div>';
 
+// Juste après la lecture des params URL, AVANT L.map()
+// Simuler la couleur depuis les données statiques
+// (sera remplacé par l'extraction canvas si disponible)
+document.title = 'PIXEL_COLOR:unknown'; // défaut
+
+// Après chargement WMS — extraction canvas
+map.on('load', tryExtractPixel);
+setTimeout(tryExtractPixel, 10000);
+
+function tryExtractPixel() {
+  try {
+    const canvases = document.querySelectorAll('canvas');
+    for (const canvas of canvases) {
+      const ctx = canvas.getContext('2d', {willReadFrequently: true});
+      const d = ctx.getImageData(
+        Math.floor(canvas.width / 2),
+        Math.floor(canvas.height / 2),
+        1, 1
+      ).data;
+      const hex = '#' + [d[0],d[1],d[2]]
+        .map(v => v.toString(16).padStart(2,'0')).join('');
+      document.title = 'PIXEL_COLOR:' + hex;
+      return;
+    }
+  } catch(e) {
+    document.title = 'PIXEL_COLOR:cors-error';
+  }
+}
+  
 // ── Leaflet — Fond de carte OSM ───────────────────────────────────────────────
 const map = L.map('map', {
   center: [LAT, LON],
