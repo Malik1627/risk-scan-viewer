@@ -130,66 +130,8 @@ const markerHtml = '<div style="width:24px;height:24px;border-radius:50%;backgro
 const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [24,24], iconAnchor: [12,12] });
 L.marker([LAT, LON], { icon }).addTo(map);
 
-// ── Extraction couleur pixel sous le marqueur ──────────────────────────────
-document.title = 'PIXEL_COLOR:unknown';
-
-setTimeout(function() {
-  try {
-    // Coordonnées écran du centre de la carte (position du marqueur)
-    var mapEl = document.getElementById('map');
-    var cx = Math.floor(mapEl.offsetWidth / 2);
-    var cy = Math.floor(mapEl.offsetHeight / 2);
-
-    // Récupère l'élément HTML à cette position
-    var el = document.elementFromPoint(cx, cy);
-
-    // Remonte dans le DOM jusqu'à trouver un élément <img> de tuile WMS
-    while (el && el.tagName !== 'IMG') {
-      el = el.parentElement;
-    }
-
-    if (el && el.tagName === 'IMG') {
-      // Dessine l'image dans un canvas local (même domaine si possible)
-      var img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = function() {
-        try {
-          var c = document.createElement('canvas');
-          c.width = img.naturalWidth;
-          c.height = img.naturalHeight;
-          var ctx = c.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-          // Pixel central de la tuile
-          var d = ctx.getImageData(
-            Math.floor(img.naturalWidth / 2),
-            Math.floor(img.naturalHeight / 2),
-            1, 1
-          ).data;
-          if (d[3] === 0) {
-            // Pixel transparent = pas de calque WMS = hors zone
-            document.title = 'PIXEL_COLOR:transparent';
-          } else {
-            var hex = '#'
-              + ('0' + d[0].toString(16)).slice(-2)
-              + ('0' + d[1].toString(16)).slice(-2)
-              + ('0' + d[2].toString(16)).slice(-2);
-            document.title = 'PIXEL_COLOR:' + hex;
-          }
-        } catch(e2) {
-          document.title = 'PIXEL_COLOR:canvas-error';
-        }
-      };
-      img.onerror = function() {
-        document.title = 'PIXEL_COLOR:img-error';
-      };
-      img.src = el.src;
-    } else {
-      document.title = 'PIXEL_COLOR:no-img';
-    }
-  } catch(e) {
-    document.title = 'PIXEL_COLOR:error-' + e.message.substring(0,20);
-  }
-}, 10000);
+// Titre par défaut — extraction côté Make via WMS GetMap
+document.title = 'Risk-Scan';
 </script>
 </body>
 </html>
